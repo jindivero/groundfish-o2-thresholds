@@ -22,7 +22,7 @@ library(patchwork)
 
 set.seed(9881)
 
-setwd("~/Dropbox/GitHub/groundfish-o2-thresholds")
+setwd("~/Dropbox/GitHub/wsg-choke-species")
 
 #ggplot themes
 theme_set(theme_bw(base_size = 16))
@@ -754,6 +754,7 @@ for(i in 1:length(unique(bp_est2$species))){
     bp_est_temp <- bind_rows(bp_est_temp, this_dat)
   }
 }
+
 ggplot(bp_est_temp, aes(y=reorder(species, bp_ensemble_mean, decreasing=T), x=bp_ensemble_mean, colour=region))+
   #facet_grid(rows="species", scales="free_y", space="free_y", switch="y")+
   geom_point(aes(colour=region), size=3, position=ggstance::position_dodgev(height=0.4))+
@@ -1855,7 +1856,7 @@ process_species <- function(species2do){
 }
 
 #Apply for all the species
-use_previous <- F
+use_previous <- T
 if(!use_previous){
 species_list <- filter(bp_est2, grepl("coastwide|bc|cc", data))
 species_list <- unique(species_list$species)
