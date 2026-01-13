@@ -72,7 +72,7 @@ coastwide <- dat
 coastwide$region <- "coastwide"
 dat <- bind_rows(dat,coastwide)
 
-#Plot O2 by depth and temp in each region
+#Fig1: Plot O2 by depth and temp in each region
 dat <- filter(dat, region!="ai")
 dat$region <- factor(dat$region, levels=c("ebs", "goa", "bc", "cc", "coastwide"))
 labs <- c("Eastern Bering Sea", "Gulf of Alaska", "British Columbia", "California Current", "Coastwide")
@@ -87,7 +87,7 @@ ggplot(filter(dat, region!="coastwide"), aes(x=po2, y=depth))+
   theme(legend.position = "top")
 
 ggsave(
-  paste0("output/", output_folder, "/plots_final/O2_depth_temp.png"),
+  paste0("output/", output_folder, "/plots/Fig1.png"),
   plot = last_plot(),
   device = NULL,
   path = NULL,
@@ -133,6 +133,7 @@ cor_all$Var2 <- gsub("depth", "Depth", cor_all$Var2)
 cor_all$Var1 <- gsub("po2", "pO2", cor_all$Var1)
 cor_all$Var2 <- gsub("po2", "pO2", cor_all$Var2)
 
+#Figure S2
 ggplot(cor_all, aes(Var1, Var2, fill = Freq)) +
   geom_tile() +
   geom_text(aes(label = round(Freq, 2)), size = 3) +
@@ -146,7 +147,7 @@ ggplot(cor_all, aes(Var1, Var2, fill = Freq)) +
 
 #Save
 ggsave(
-  paste0("output/", output_folder, "/plots/O2_depth_temp_correlelogram.png"),
+  paste0("output/", output_folder, "/plots/Fig_S2.png"),
   plot = last_plot(),
   device = NULL,
   path = NULL,
