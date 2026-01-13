@@ -9,8 +9,9 @@ library(dplyr)
 library(sf)
 install.packages("tidync")
 library(tidync)
+library(here)
 
-basewd <-"~/Dropbox/GitHub/groundfish-o2-thresholds"
+basewd <-here()
 
 setwd(basewd)
 source("code/util_funs.R")

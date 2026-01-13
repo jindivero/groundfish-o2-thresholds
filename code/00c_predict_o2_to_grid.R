@@ -1,7 +1,8 @@
 library(sdmTMB)
 library(dplyr)
-###wd
-setwd("~/Dropbox/GitHub/groundfish-o2-thresholds")
+library(here)
+
+setwd(here())
 
 #Load functions
 source("code/helper_funs.R")

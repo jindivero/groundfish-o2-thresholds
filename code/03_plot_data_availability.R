@@ -10,14 +10,15 @@ library(readxl)
 library(openxlsx2)
 library(ggpattern)
 library(ggpubr)
+library(here)
 
-setwd("~/Dropbox/GitHub/groundfish-o2-thresholds")
+setwd(here())
 
 #Load functions
 source("code/helper_funs.R")
 
 #Load data
-dat <- list.files(path = "data/processed_data/fish2", pattern = ".rds", full.names=T) %>%
+dat <- list.files(path = "data/processed_data/fish", pattern = ".rds", full.names=T) %>%
   map(readRDS) %>% 
   bind_rows()
 
@@ -58,84 +59,8 @@ theme_update(panel.grid.major = element_blank(),
              strip.background = element_blank())
 
 ##Combine IPHC and bottom trawl surveys, positive catch only, for each species
-##Plot barplot with IPHC and bottom trawl
-#all species
-ggplot(filter(dat, (survey!="iphc" & catch_weight>0)|(survey=="iphc"&(cpue_weight>0|cpue_count>0))), aes(x=year, fill=region, pattern=survey_type))+
-  #stat_count(aes(fill=region, pattern=survey_type))+
-  facet_wrap("common_name", ncol=4, scales="free_y", labeller=labeller(common_name=label_wrap_gen(20)))+
-  scale_x_continuous(breaks=c(2009,2016,2023), limits=c(2008,2023))+
-  geom_bar_pattern(
-    stat = "count",
-    colour = "black",            # Outline color
-    pattern_fill = "black",      # Pattern stripe color
-    pattern_angle = 45,
-    pattern_density = 0.2,
-    pattern_spacing = 0.05,
-    pattern_size = 0.1)+
-  scale_pattern_manual(
-    name="data type",
-    values = c("none", "stripe"))+
-  xlab("Year")+
-  ylab("Number of Observations")+
-  theme(legend.position="top",  panel.spacing=unit(0, "pt"),legend.justification="center", legend.box.spacing = unit(0, "pt"))+
-  guides(fill = guide_legend(nrow = 2), pattern=guide_legend(nrow=2,override.aes = list(pattern = c("none", "stripe"))))+
-  scale_fill_manual(values=c("#88CCEE", "#999933", "#44AA99","#CC6677"), drop=FALSE, labels=labs)
-
-ggsave(
-  paste("output/plots/dat_availability/barplot_positiveonly_all.png"),
-  plot = last_plot(),
-  device = NULL,
-  path = NULL,
-  scale = 1,
-  width = 10,
-  height = 13,
-  units = c("in"),
-  dpi = 600,
-  limitsize = TRUE, bg="white"
-)
-
-##All observations, example
-example <- filter(dat, common_name=="sablefish")
-#Labels
-example$survey <- factor(example$survey, levels=c("iphc", "afsc_bsai", "afsc_goa" ,"dfo", "nwfsc")) 
-labs2 <- c("IPHC Longline", "NOAA BS Bottom Trawl", "NOAA GOA Bottom Trawl", "DFO BC Bottom Trawl", "NOAA WC Bottom Trawl")
-names(labs2) <- c("iphc", "afsc_bsai", "afsc_goa" ,"dfo", "nwfsc")
-
-theme_set(theme_bw(base_size = 20))
-theme_update(panel.grid.major = element_blank(),
-             panel.grid.minor = element_blank(),
-             strip.background = element_blank())
-
-plot1 <- ggplot(example, aes(x=year, fill=survey))+
-  stat_count(aes(fill=survey))+
-  facet_wrap("region", ncol=2, scales="free_y", labeller=labeller(region=labs))+
-  scale_x_continuous(breaks=c(2009,2016,2023), limits=c(2008,2023))+
-  scale_pattern_manual(
-    name="data type",
-    values = c("none", "stripe"))+
-  xlab("Year")+
-  ylab("Number of Observations")+
-  theme(legend.position="top")+
-  guides(fill = guide_legend(nrow = 2))+
-  scale_fill_manual(values=c("#f2cc84","#B9D7D9", "#a7ba42", "darkslategrey", "#FAD2E1"), drop=FALSE, labels=labs2)
-
-plot1
-
- ggsave(
-  paste("output/plots/data_available_overall.png"),
-  plot = last_plot(),
-  device = NULL,
-  path = NULL,
-  scale = 1,
-  width = 8.5,
-  height = 7,
-  units = c("in"),
-  dpi = 600,
-  limitsize = TRUE, bg="white"
-)
-
-###Map of all data available
-# setup up mapping ####
+##Fig S1: Plot barplot with IPHC and bottom trawl
+#Set up mapping
 map_data <- rnaturalearth::ne_countries(scale = "large",
                                         returnclass = "sf",
                                         continent = "North America")
@@ -154,39 +79,7 @@ plot2 <- ggplot(us_coast_proj) + geom_sf() +
   guides(color = guide_legend(override.aes = list(size=3, alpha=1)))+
   scale_color_manual(values=c( "#f2cc84","#B9D7D9", "#a7ba42", "darkslategrey", "#FAD2E1"), drop=FALSE, labels=labs2)
 
-plot2
-
-ggsave(
-  paste("output/plots/data_available_map.png"),
-  plot = last_plot(),
-  device = NULL,
-  path = NULL,
-  scale = 1,
-  width = 8.5,
-  height = 11,
-  units = c("in"),
-  dpi = 600,
-  limitsize = TRUE, bg="white"
-)
-
-#Combine
-#Combine plots
-ggarrange(plot1, plot2, common.legend=T)
-
-ggsave(
-  paste("output/plots/data_available_combined.png"),
-  plot = last_plot(),
-  device = NULL,
-  path = NULL,
-  scale = 1,
-  width = 15,
-  height = 8.5,
-  units = c("in"),
-  dpi = 600,
-  limitsize = TRUE, bg="white"
-)
-
-#Other option, with above and below and colored
+#Barplot of observations
 summary <- example %>%
   group_by(region, survey_type, year) %>%
   summarize(count=n())
@@ -210,20 +103,6 @@ plot3 <- ggplot(summary, aes(x=year, y=count, fill=region))+
   geom_hline(yintercept=0, linetype="solid")+
   annotate("text", x = -Inf, y = Inf, label = paste("Bottom Trawl Data"), vjust = 2, hjust = -0.15, size=10)+
   annotate("text", x = -Inf, y = -Inf, label = paste("IPHC Longline Data"), vjust=-0.5, hjust=-0.15, size=10)
-
-plot3
-ggsave(
-  paste("output/plots/data_available_splitbar.png"),
-  plot = last_plot(),
-  device = NULL,
-  path = NULL,
-  scale = 1,
-  width = 15,
-  height = 8.5,
-  units = c("in"),
-  dpi = 600,
-  limitsize = TRUE, bg="white"
-)
 
 #Combine second option
 plot4 <- ggplot(us_coast_proj) + geom_sf() +
@@ -282,7 +161,7 @@ write.csv(species, file="output/species_summary.csv")
 #Plot
 list <- unique(dat$common_name)
 dat_names <- c("cc", "bc", "goa", "ebs", "coastwide", "cc _iphc", "bc _iphc", "goa _iphc", "ebs _iphc", "coastwide _iphc")
-output_folder <- "region_comp"
+output_folder <- "output"
 
 for(i in 1:length(list)) {
   this_species = list[i]
@@ -311,7 +190,7 @@ for(i in 1:length(list)) {
       
       
       ggsave(
-        paste0(output_folder, "/", "plots/data_fit_mapping/map_",this_species,"_", this_dat,".png"),
+        paste0(output_folder, "/", "plots/dat_annual_map/",this_species,"_", this_dat,".png"),
         plot = last_plot(),
         device = NULL,
         path = NULL,

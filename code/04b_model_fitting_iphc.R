@@ -9,10 +9,11 @@ library(purrr)
 library(gt)
 library(openxlsx2)
 library(stringr)
+library(here)
 
 set.seed(9876)
 
-setwd("~/Dropbox/GitHub/groundfish-o2-thresholds")
+setwd(here())
 
 #Load functions
 source("code/helper_funs.R")
@@ -76,7 +77,7 @@ spatio_temp <- F
 filter_depth <- T
 
 #Name of output folder
-output_folder <- "region_comp4"
+output_folder <- "output"
 
 #Fit models 1-6? (Quadratic depth, not cubic depth)
 quad_depth_m1_6 <- T

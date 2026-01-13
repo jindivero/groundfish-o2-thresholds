@@ -6,9 +6,10 @@ library(dplyr)
 library(tidyr)
 library(readxl)
 library(sf)
+library(here)
 
 #Set wd
-setwd("~/Dropbox/GitHub/groundfish-o2-thresholds")
+setwd(here())
 
 ##Initial data cache
 cache_data()

@@ -5,15 +5,16 @@ library(dplyr)
 library(tidyr)
 library(ggplot2)
 library(viridis)
+library(here)
 
 ###wd
-setwd("~/Dropbox/GitHub/groundfish-o2-thresholds")
+setwd(here())
 
 #Load functions
 source("code/helper_funs.R")
 
 #Output folder
-output_folder <- "region_comp4"
+output_folder <- "output"
 
 #ggplot themes
 theme_set(theme_bw(base_size = 18))

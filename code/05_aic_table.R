@@ -4,14 +4,15 @@ library(dplyr)
 library(tidyr)
 library(gt)
 library(openxlsx2)
+library(here)
 
-setwd("~/Dropbox/GitHub/groundfish-o2-thresholds")
+setwd(here())
 
 #Load functions
 source("code/helper_funs.R")
 
 #Output folder
-output_folder <- "region_comp4"
+output_folder <- "output"
 
 #Depth structure
 cubic <- T

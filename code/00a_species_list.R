@@ -7,8 +7,8 @@ library(tidync)
 library(sdmTMB)
 library(marmap)
 library(sf)
+library(here)
 
-setwd("~/Dropbox/GitHub/groundfish-o2-sdm")
 source("code/helper_funs.R")
 source("code/util_funs.R")
 

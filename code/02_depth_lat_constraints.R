@@ -7,14 +7,15 @@ library(ggpubr)
 install.packages("concaveman")
 library(concaveman)
 library(sf)
+library(here)
 
-setwd("~/Dropbox/GitHub/groundfish-o2-thresholds")
+setwd(here())
 
 #Load functions
 source("code/helper_funs.R")
 
 #Output folder
-output_folder <- "region_comp4"
+output_folder <- "output"
 
 #Plot themes
 theme_set(theme_bw(base_size = 15))
@@ -30,7 +31,7 @@ map_data <- rnaturalearth::ne_countries(scale = "large",
 us_coast_proj <- sf::st_transform(map_data, crs = 32610)
 
 #Load data
-dat <- list.files(path = "data/processed_data/fish3", pattern = ".rds", full.names=T) %>%
+dat <- list.files(path = "data/processed_data/fish", pattern = ".rds", full.names=T) %>%
   map(readRDS) %>% 
   bind_rows()
 
@@ -106,7 +107,7 @@ for(i in 1:length(species)){
 species_table <- left_join(species_table, depths, by="common_name")
 write_xlsx(species_table, "data/species_table.xlsx")
 
-#Plot cumulative sum by depth
+#Fig S10: Plot cumulative sum by depth
 ggplot(dat_depths, aes(x=depth, y=prop_cumsum_catch))+
   geom_line()+
   geom_vline(species_table, mapping=aes(xintercept=depth), linetype="dashed")+
@@ -115,7 +116,7 @@ ggplot(dat_depths, aes(x=depth, y=prop_cumsum_catch))+
   xlab("Depth (m)")
 
 ggsave(
-  paste0("output/", output_folder, "/plots/cumulative_depth.png"),
+  paste0("output/", output_folder, "/plots/Fig_S10.png"),
   plot = last_plot(),
   device = NULL,
   path = NULL,
@@ -479,7 +480,7 @@ ggplot(filter(dat_limits, common_name %in% species_ebs & type=="ebs_limit"), aes
   xlab("Latitude")
 
 ggsave(
-  paste0("output/", output_folder, "/plots/cumulative_latitude_combined_N.png"),
+  paste0("output/", output_folder, "/plots/Fig_S11_A.png"),
   plot = last_plot(),
   device = NULL,
   path = NULL,
@@ -501,7 +502,7 @@ ggplot(filter(dat_limits, common_name %in% species_goa & type=="goa_limit"), aes
   xlab("Latitude")
 
 ggsave(
-  paste0("output/", output_folder, "/plots/cumulative_latitude_goa.png"),
+  paste0("output/", output_folder, "/plots/Fig_S11_B.png"),
   plot = last_plot(),
   device = NULL,
   path = NULL,
@@ -523,7 +524,7 @@ ggplot(filter(dat_limits, common_name %in% species_cc & type=="southern_limit"),
   xlab("Latitude")
 
 ggsave(
-  paste0("output/", output_folder, "/plots/cumulative_latitude_cc.png"),
+  paste0("output/", output_folder, "/plots/Fig_S11_C.png"),
   plot = last_plot(),
   device = NULL,
   path = NULL,
