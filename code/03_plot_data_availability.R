@@ -59,6 +59,43 @@ theme_update(panel.grid.major = element_blank(),
              strip.background = element_blank())
 
 ##Combine IPHC and bottom trawl surveys, positive catch only, for each species
+##Plot barplot with IPHC and bottom trawl
+#Fig S9: all species
+ggplot(filter(dat, (survey!="iphc" & catch_weight>0)|(survey=="iphc"&(cpue_weight>0|cpue_count>0))), aes(x=year, fill=region, pattern=survey_type))+
+  #stat_count(aes(fill=region, pattern=survey_type))+
+  facet_wrap("common_name", ncol=4, scales="free_y", labeller=labeller(common_name=label_wrap_gen(20)))+
+  scale_x_continuous(breaks=c(2009,2016,2023), limits=c(2008,2023))+
+  geom_bar_pattern(
+    stat = "count",
+    colour = "black",            # Outline color
+    pattern_fill = "black",      # Pattern stripe color
+    pattern_angle = 45,
+    pattern_density = 0.2,
+    pattern_spacing = 0.05,
+    pattern_size = 0.1)+
+  scale_pattern_manual(
+    name="data type",
+    values = c("none", "stripe"))+
+  xlab("Year")+
+  ylab("Number of Observations")+
+  theme(legend.position="top",  panel.spacing=unit(0, "pt"),legend.justification="center", legend.box.spacing = unit(0, "pt"))+
+  guides(fill = guide_legend(nrow = 2), pattern=guide_legend(nrow=2,override.aes = list(pattern = c("none", "stripe"))))+
+  scale_fill_manual(values=c("#88CCEE", "#999933", "#44AA99","#CC6677"), drop=FALSE, labels=labs)
+
+ggsave(
+  paste("output/plots/Fig_S9.png"),
+  plot = last_plot(),
+  device = NULL,
+  path = NULL,
+  scale = 1,
+  width = 10,
+  height = 13,
+  units = c("in"),
+  dpi = 600,
+  limitsize = TRUE, bg="white"
+)
+
+##Combine IPHC and bottom trawl surveys, positive catch only, for each species
 ##Fig S1: Plot barplot with IPHC and bottom trawl
 #Set up mapping
 map_data <- rnaturalearth::ne_countries(scale = "large",

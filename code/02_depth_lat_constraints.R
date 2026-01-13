@@ -552,7 +552,7 @@ ggplot(us_coast_proj) + geom_sf() +
   theme(panel.spacing.x = unit(1.5, "lines"))
 
 ggsave(
-  paste0("output/", output_folder, "/plots/data_by_species.png"),
+  paste0("output/", output_folder, "/plots/Fig_S12.png"),
   plot = last_plot(),
   device = NULL,
   path = NULL,
