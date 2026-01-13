@@ -339,13 +339,13 @@ for(i in 1:length(region_list)){
 preds <- bind_rows(preds)
 
 #Map spatial variation in each region
-###Map#########
 map_data <- rnaturalearth::ne_countries(scale = "large",
                                         returnclass = "sf",
                                         continent = "North America")
 
 us_coast_proj <- sf::st_transform(map_data, crs = 32610)
 
+##Figure S4
 for(i in 1:length(region_list)){
   grid2use<- filter(preds, region==region_list[i])
   grid2use<- filter(grid2use, year=="2021")
@@ -374,164 +374,4 @@ ggsave(
   limitsize = TRUE, bg="white"
 )
 
-}
-
-##Spatiotemporal effects for each year
-for(i in 1:length(region_list)){
-  grid2use<- filter(preds, region==region_list[i])
-  print(region_list[i])
-  
-  ggplot(us_coast_proj) + geom_sf() +
-    geom_point(grid2use, mapping=aes(x=X*1000, y=Y*1000,colour=epsilon_st), size=0.1)+
-    xlim(min(grid2use$X)*1000, max(grid2use$X)*1000)+
-    ylim(min(grid2use$Y)*1000, max(grid2use$Y)*1000)+
-      facet_wrap("year", ncol=4)+
-    theme_minimal(base_size=12)+
-    xlab("Longitude")+
-    ylab("Latitude")+
-    theme(axis.text.x=element_blank())+
-    scale_colour_viridis()
-  
-  ggsave(
-    paste("output/plots/o2_epsilon_",region_list[i], ".png"),
-    plot = last_plot(),
-    device = NULL,
-    path = NULL,
-    scale = 1,
-    width = 8.5,
-    height = 11,
-    units = c("in"),
-    dpi = 600,
-    limitsize = TRUE, bg="white"
-  )
-  
-}
-
-#Calculate the coefficient of variation of epsilon_st for each latitude & longitude combination
-epsilon_cv <- preds %>%
-  group_by(X, Y, region) %>%
-  summarise(epsilon_st_sd = sd(epsilon_st),epsilon_st_mean = mean(epsilon_st),epsilon_st_var = var(epsilon_st), epsilon_st_cv = (sd(epsilon_st)/mean(epsilon_st))) %>%
-  ungroup()
-
-#plot
-for(i in 1:length(region_list)){
-  grid2use<- filter(epsilon_cv, region==region_list[i])
-  print(region_list[i])
-  
-  ggplot(us_coast_proj) + geom_sf() +
-    geom_point(grid2use, mapping=aes(x=X*1000, y=Y*1000,colour=epsilon_st_var), size=0.1)+
-    xlim(min(grid2use$X)*1000, max(grid2use$X)*1000)+
-    ylim(min(grid2use$Y)*1000, max(grid2use$Y)*1000)+
-    theme_minimal(base_size=12)+
-    xlab("Longitude")+
-    ylab("Latitude")+
-    theme(axis.text.x=element_blank())+
-    scale_colour_viridis()
-  
-  ggsave(
-    paste("output/plots/o2_epsilon_cv_",region_list[i], ".png"),
-    plot = last_plot(),
-    device = NULL,
-    path = NULL,
-    scale = 1,
-    width = 8.5,
-    height = 5,
-    units = c("in"),
-    dpi = 600,
-    limitsize = TRUE, bg="white"
-  )
-  
-}
-
-##Proportion of annual, spatial, and spatio-temporal variation
-##Add value of column in coefs matching region and year of preds
-#Add year column
-#last four digits of coefs$term
-coefs$year <- substr(coefs$term, nchar(coefs$term)-3, nchar(coefs$term))
-#pivot long
-coefs2 <- pivot_longer(coefs, cols=2:5, names_to="region", values_to="value")
-#Match to preds
-preds <- left_join(preds, coefs2, by=c("region", "year"))
-
-#Rename
-preds$annual_fixed <- preds$value
-
-#Calculate proportion of prediction from each term
-preds$spatial <- abs(preds$omega_s)/(abs(preds$omega_s)+abs(preds$epsilon_st)+abs(preds$annual_fixed))
-preds$spatiotemp <- abs(preds$epsilon_st)/(abs(preds$omega_s)+abs(preds$epsilon_st)+abs(preds$annual_fixed))
-preds$annual <- abs(preds$annual_fixed)/(abs(preds$omega_s)+abs(preds$epsilon_st)+abs(preds$annual_fixed))
-
-###These look terrible
-#Ternary plot
-install.packages("ggtern")
-library(ggtern)
-
-ggtern(data=filter(preds,year=="2021"),aes(annual,spatial,spatiotemp)) + 
-geom_mask() +
-  facet_wrap("region")+
-  geom_point(size=0.2, alpha=0.5, aes(colour=region)) + 
-  theme_bw() +
-  theme_showarrows() +
-  theme_clockwise()+
-  ggtitle("2021")
-
-ggtern(data=filter(preds,year=="2012"),aes(annual,spatial,spatiotemp)) + 
-  geom_mask() +
-  facet_wrap("region")+
-  geom_point(size=0.2, alpha=0.5, aes(colour=region)) + 
-  theme_bw() +
-  theme_showarrows() +
-  theme_clockwise()+
-  ggtitle("2012")
-
-library(lattice)
-cloud(abs(epsilon_st)~ abs(omega_s) * abs(annual_fixed), pch = ".", data = filter(preds, region=="cc"), group=year)
-cloud(abs(epsilon_st)~ abs(omega_s) * abs(annual_fixed), pch = ".", data = filter(preds, region=="bc"), group=year)
-cloud(abs(epsilon_st)~ abs(omega_s) * abs(annual_fixed), pch = ".", data = filter(preds, region=="goa"), group=year)
-cloud(abs(epsilon_st)~ abs(omega_s) * abs(annual_fixed), pch = ".", data = filter(preds, region=="ebs"), group=year)
-
-#Overall
-pars2 <- bind_rows(coefs, pars)
-pars2 <- filter(pars2, term!="(Intercept)"&term!="range"&term!="phi")
-#Pivot long
-pars2 <- pivot_longer(pars2, cols=2:5, names_to="region", values_to="value")
-pars2$type <- ifelse(grepl("year", pars2$term), "fixed", "random")
-#Plot
-ggplot(pars2, aes(x=region, y=abs(value)))+
-  geom_col(aes(fill=term, alpha=type))+
-  theme_minimal(base_size=12)+
-  scale_alpha_manual(values=c(0.5, 1))
-
-#Plot spatial marginal effects
-#plot
-preds$spatial_marg_prop <- (preds$est-preds$omega_s)/preds$est
-preds$spatiotemp_marg_prop <- (preds$est-preds$epsilon_st)/preds$est
-
-for(i in 1:length(region_list)){
-  grid2use<- filter(preds, region==region_list[i])
-  print(region_list[i])
-  
-  ggplot(us_coast_proj) + geom_sf() +
-    geom_point(filter(grid2use,est>0), mapping=aes(x=X*1000, y=Y*1000,colour=spatial_marg_prop), size=0.1)+
-    xlim(min(grid2use$X)*1000, max(grid2use$X)*1000)+
-    ylim(min(grid2use$Y)*1000, max(grid2use$Y)*1000)+
-    theme_minimal(base_size=12)+
-    xlab("Longitude")+
-    ylab("Latitude")+
-    theme(axis.text.x=element_blank())+
-    scale_colour_viridis()
-  
-  ggsave(
-    paste("output/plots/o2_spatial_prop_change",region_list[i], ".png"),
-    plot = last_plot(),
-    device = NULL,
-    path = NULL,
-    scale = 1,
-    width = 8.5,
-    height = 5,
-    units = c("in"),
-    dpi = 600,
-    limitsize = TRUE, bg="white"
-  )
-  
 }
