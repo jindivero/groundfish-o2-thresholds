@@ -77,9 +77,9 @@ dat <- filter(dat, region!="ai")
 dat$region <- factor(dat$region, levels=c("ebs", "goa", "bc", "cc", "coastwide"))
 labs <- c("Eastern Bering Sea", "Gulf of Alaska", "British Columbia", "California Current", "Coastwide")
 names(labs) <- c("ebs", "goa", "bc", "cc", "coastwide")
-ggplot(filter(dat, region!="coastwide"), aes(x=po2, y=depth))+
+ggplot(dat, aes(x=po2, y=depth))+
   geom_point(aes(colour=temperature_C), size=0.5, alpha=0.1)+
-  facet_wrap("region", labeller = as_labeller(labs), scales="free_x")+
+  facet_wrap("region", labeller = as_labeller(labs))+
   scale_colour_viridis(option="inferno", name="Temperature (C)")+
   scale_y_reverse()+
   xlab("Partial Pressure Oxygen (kPa)")+
@@ -87,7 +87,7 @@ ggplot(filter(dat, region!="coastwide"), aes(x=po2, y=depth))+
   theme(legend.position = "top")
 
 ggsave(
-  paste0("output/", output_folder, "/plots/Fig1.png"),
+  paste0("output/plots/Fig1.png"),
   plot = last_plot(),
   device = NULL,
   path = NULL,
@@ -375,3 +375,47 @@ ggsave(
 )
 
 }
+
+#Filter dat to years and regions with more than 50 rows of data
+dat2 <- dat %>%
+  group_by(year, region) %>%
+  filter(n() > 50) %>%
+  ungroup()
+
+
+##Mean and sd each year
+o2_annual_summary <- dat2 %>%
+  group_by(region, year) %>%
+  summarise(mean_po2 = mean(po2, na.rm=T),
+            sd_po2 = sd(po2, na.rm=T))
+
+
+#min and max
+o2_annual_summary$high <- o2_annual_summary$mean_po2 + o2_annual_summary$sd_po2
+o2_annual_summary$low <- o2_annual_summary$mean_po2 - o2_annual_summary$sd_po2
+
+###Plot annually
+ggplot(o2_annual_summary, aes(x=year, y=mean_po2))+
+  geom_point(data=dat2, aes(x=year, y=po2), alpha=0.1, size=0.2)+
+  geom_line(o2_annual_summary, mapping=aes(x=year, y=mean_po2), colour="#357BA2FF" )+
+  geom_ribbon(data=o2_annual_summary, mapping=aes(x=year, ymin=low, ymax=high), fill="#357BA2FF", alpha=0.2)+
+  facet_wrap("region", labeller = as_labeller(labs))+
+  xlab("Year")+
+  ylim(0,40)+
+  scale_x_continuous(breaks=c(2010,2015,2020))+
+  ylab("Partial Pressure Oxygen (kPa)")
+
+ggsave(
+  paste0("output/plots/o2_annual_trend.png"),
+  plot = last_plot(),
+  device = NULL,
+  path = NULL,
+  scale = 1,
+  width = 8.5,
+  height= 6,
+  units = c("in"),
+  bg="white",
+  dpi = 600,
+  limitsize = TRUE
+)
+

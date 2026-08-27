@@ -1,19 +1,16 @@
+#Load packages
 library(readxl)
-install.packages("lubridate")
 library(lubridate)
-install.packages("ggpubr")
 library(ggpubr)
-install.packages("seacarb")
 library(seacarb)
 library(dplyr)
 library(sf)
-install.packages("tidync")
 library(tidync)
 library(here)
 
-basewd <-here()
+setwd(here())
 
-setwd(basewd)
+#Load functions
 source("code/util_funs.R")
 
 ###BC

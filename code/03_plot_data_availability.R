@@ -11,6 +11,9 @@ library(openxlsx2)
 library(ggpattern)
 library(ggpubr)
 library(here)
+library(sf)
+library(patchwork)
+library(concaveman)
 
 setwd(here())
 
@@ -18,7 +21,7 @@ setwd(here())
 source("code/helper_funs.R")
 
 #Load data
-dat <- list.files(path = "data/processed_data/fish", pattern = ".rds", full.names=T) %>%
+dat <- list.files(path = "data/processed_data/fish_filtered", pattern = ".rds", full.names=T) %>%
   map(readRDS) %>% 
   bind_rows()
 
@@ -58,32 +61,58 @@ theme_update(panel.grid.major = element_blank(),
              panel.grid.minor = element_blank(),
              strip.background = element_blank())
 
+##Make polygons of regions for mapping
+regions <- unique(dat$region)
+for(i in 1:length(unique(dat$region))){
+this_region <- regions[i]
+this_dat <- filter(dat, region==this_region)
+this_dat$X <- this_dat$X*1000
+this_dat$Y <- this_dat$Y*1000
+pts <- st_as_sf(
+  this_dat,
+  coords = c("X", "Y"),
+  crs = 32610
+)
+outline <- concaveman(pts)
+outline$region <- this_region
+if(i==1){
+  polygons <- outline
+}
+if(i>1){
+  polygons <- dplyr::bind_rows(polygons, outline)
+}
+}
+
+##Counts of number of positive catches for each species, for plotting
+counts <- dat %>%
+  filter(
+    (survey != "iphc" & catch_weight > 0) |
+      (survey == "iphc" & (cpue_weight > 0 | cpue_count > 0))
+  ) %>%
+  count(common_name, year, region, survey_type)
+
 ##Combine IPHC and bottom trawl surveys, positive catch only, for each species
-##Plot barplot with IPHC and bottom trawl
-#Fig S9: all species
-ggplot(filter(dat, (survey!="iphc" & catch_weight>0)|(survey=="iphc"&(cpue_weight>0|cpue_count>0))), aes(x=year, fill=region, pattern=survey_type))+
-  #stat_count(aes(fill=region, pattern=survey_type))+
+##Plot barplot with IPHC and bottom trawl data for all species
+ggplot(counts, aes(x=year, y=n, fill=region, pattern=survey_type))+
   facet_wrap("common_name", ncol=4, scales="free_y", labeller=labeller(common_name=label_wrap_gen(20)))+
-  scale_x_continuous(breaks=c(2009,2016,2023), limits=c(2008,2023))+
-  geom_bar_pattern(
-    stat = "count",
-    colour = "black",            # Outline color
-    pattern_fill = "black",      # Pattern stripe color
-    pattern_angle = 45,
-    pattern_density = 0.2,
-    pattern_spacing = 0.05,
+  scale_x_continuous(breaks=c(2009,2016,2023))+
+  geom_col_pattern(
+    colour = "black",          # Outline color     # Pattern stripe color
+   pattern_angle = 45,
+  pattern_density = 0.1,
+   pattern_spacing = 0.05,
     pattern_size = 0.1)+
-  scale_pattern_manual(
+    scale_pattern_manual(
     name="data type",
     values = c("none", "stripe"))+
-  xlab("Year")+
+    xlab("Year")+
   ylab("Number of Observations")+
   theme(legend.position="top",  panel.spacing=unit(0, "pt"),legend.justification="center", legend.box.spacing = unit(0, "pt"))+
   guides(fill = guide_legend(nrow = 2), pattern=guide_legend(nrow=2,override.aes = list(pattern = c("none", "stripe"))))+
   scale_fill_manual(values=c("#88CCEE", "#999933", "#44AA99","#CC6677"), drop=FALSE, labels=labs)
 
 ggsave(
-  paste("output/plots/Fig_S9.png"),
+  paste("output/plots/Fig_S9_dat_barplot_all_species.png"),
   plot = last_plot(),
   device = NULL,
   path = NULL,
@@ -95,8 +124,6 @@ ggsave(
   limitsize = TRUE, bg="white"
 )
 
-##Combine IPHC and bottom trawl surveys, positive catch only, for each species
-##Fig S1: Plot barplot with IPHC and bottom trawl
 #Set up mapping
 map_data <- rnaturalearth::ne_countries(scale = "large",
                                         returnclass = "sf",
@@ -104,17 +131,17 @@ map_data <- rnaturalearth::ne_countries(scale = "large",
 
 us_coast_proj <- sf::st_transform(map_data, crs = 32610)
 
-#Plot map
-plot2 <- ggplot(us_coast_proj) + geom_sf() +
- geom_point(filter(example, survey_type!="bottom trawl survey"), mapping=aes(x=X*1000, y=Y*1000,colour=survey), size=0.3, alpha=0.5)+
- geom_point(filter(example, survey_type=="bottom trawl survey"), mapping=aes(x=X*1000, y=Y*1000,colour=survey), size=0.3, alpha=1)+
-  scale_x_continuous(breaks=c(-150,-135,-120), limits=c(min(example$X)*1000, max(example$X)*1000))+
-  ylim(min(example$Y)*1000, max(example$Y)*1000)+
-  xlab("Longitude")+
-  ylab("Latitude")+
-  theme(legend.position=c(0.4,0.3))+
-  guides(color = guide_legend(override.aes = list(size=3, alpha=1)))+
-  scale_color_manual(values=c( "#f2cc84","#B9D7D9", "#a7ba42", "darkslategrey", "#FAD2E1"), drop=FALSE, labels=labs2)
+##All observations (Fig S1), example for plotting
+example <- filter(dat, common_name=="sablefish")
+#Labels
+example$survey <- factor(example$survey, levels=c("iphc", "afsc_bsai", "afsc_goa" ,"dfo", "nwfsc")) 
+labs2 <- c("IPHC Longline", "NOAA BS Bottom Trawl", "NOAA GOA Bottom Trawl", "DFO BC Bottom Trawl", "NOAA WC Bottom Trawl")
+names(labs2) <- c("iphc", "afsc_bsai", "afsc_goa" ,"dfo", "nwfsc")
+
+theme_set(theme_bw(base_size = 20))
+theme_update(panel.grid.major = element_blank(),
+             panel.grid.minor = element_blank(),
+             strip.background = element_blank())
 
 #Barplot of observations
 summary <- example %>%
@@ -122,29 +149,67 @@ summary <- example %>%
   summarize(count=n())
 summary$count <- ifelse(summary$survey_type=="IPHC longline", summary$count*-1, summary$count)
 
-theme_set(theme_bw(base_size = 30))
+theme_set(theme_bw(base_size = 20))
 theme_update(panel.grid.major = element_blank(),
              panel.grid.minor = element_blank(),
              strip.background = element_blank())
 
 plot3 <- ggplot(summary, aes(x=year, y=count, fill=region))+
   geom_col()+
- # facet_wrap("region", ncol=2, scales="free_y", labeller=labeller(region=labs))+
-  #scale_x_continuous(breaks=c(2009,2016,2023), limits=c(2008,2023))+
-  scale_y_continuous(breaks=c(-1000,-500,0,500,1000),labels=c(1000,500,0,500,1000), limits=c(-1200,1200))+
+  scale_y_continuous(breaks=c(-1000,-500,0,500,1000),labels=c(1000,500,0,500,1000), limits=c(-1300, 1300))+
   xlab("Year")+
   ylab("Number of Observations")+
   guides(fill = guide_legend(nrow = 2))+
   scale_fill_manual(values=c("#88CCEE", "#999933", "#44AA99","#CC6677"), drop=FALSE, labels=labs)+
   theme(legend.position="top", legend.title=element_blank())+
   geom_hline(yintercept=0, linetype="solid")+
-  annotate("text", x = -Inf, y = Inf, label = paste("Bottom Trawl Data"), vjust = 2, hjust = -0.15, size=10)+
-  annotate("text", x = -Inf, y = -Inf, label = paste("IPHC Longline Data"), vjust=-0.5, hjust=-0.15, size=10)
+  annotate("text", x = -Inf, y = Inf, label = paste("Bottom Trawl Data"), vjust = 2, hjust = -0.15, size=6)+
+  annotate("text", x = -Inf, y = -Inf, label = paste("IPHC Longline Data"), vjust=-0.5, hjust=-0.15, size=6)
 
-#Combine second option
+#Map of data in each region
+#Create labels for regions
+labels <- st_point_on_surface(polygons)
+labels$region_lab <- c("Eastern \n Bering \n Sea", "Gulf of Alaska", "California \n Current", "British\n Columbia")
+labels$nudge <-  c(-800000, -900000, -600000, -700000)
+
+#Map of regions
+plot5 <- ggplot(us_coast_proj) + geom_sf() +
+  geom_sf(data = polygons,
+          aes(fill = region),
+          alpha = 1,
+          show.legend=F)+
+  geom_sf_text(
+    data = labels,
+    aes(label = region_lab, nudge_x=nudge, colour=region), 
+    size=6,
+    show.legend=F)+
+  scale_x_continuous(breaks=c(-150,-135,-120), limits=c(min(example$X-800)*1000, max(example$X)*1000))+
+  ylim(min(example$Y)*1000, max(example$Y)*1000)+
+  xlab("Longitude")+
+  ylab("Latitude")+
+  theme(legend.position=c("top"), legend.title=element_blank())+
+  scale_fill_manual(values=c("#88CCEE", "#999933", "#44AA99","#CC6677"), labels=labs)+
+  scale_colour_manual(values=c("#88CCEE", "#999933", "#44AA99","#CC6677"), labels=labs)
+
+plot3+plot5+plot_annotation(tag_levels='A')
+
+ggsave(
+  paste("output/plots/data_available_combined.png"),
+  plot = last_plot(),
+  device = NULL,
+  path = NULL,
+  scale = 1,
+  width = 13,
+  height = 7,
+  units = c("in"),
+  dpi = 600,
+  limitsize = TRUE, bg="white"
+)
+
+#Map of haul locations in each region
 plot4 <- ggplot(us_coast_proj) + geom_sf() +
-  geom_point(filter(example, survey_type!="bottom trawl survey"), mapping=aes(x=X*1000, y=Y*1000,colour=survey), size=0.3, alpha=0.5)+
-  geom_point(filter(example, survey_type=="bottom trawl survey"), mapping=aes(x=X*1000, y=Y*1000,colour=survey), size=0.3, alpha=1)+
+  geom_point(filter(example, survey_type!="bottom trawl survey"), mapping=aes(x=X*1000, y=Y*1000, colour=survey), size=0.005, alpha=1)+
+  geom_point(filter(example, survey_type=="bottom trawl survey"), mapping=aes(x=X*1000, y=Y*1000, colour=survey), size=0.005, alpha=0.5)+
   scale_x_continuous(breaks=c(-150,-135,-120), limits=c(min(example$X)*1000, max(example$X)*1000))+
   ylim(min(example$Y)*1000, max(example$Y)*1000)+
   xlab("Longitude")+
@@ -153,7 +218,7 @@ plot4 <- ggplot(us_coast_proj) + geom_sf() +
   guides(color = guide_legend(override.aes = list(size=6, alpha=1), nrow=3))+
   scale_color_manual(values=c("#f2cc84","lightsteelblue", "seagreen", "darkslategrey", "#FAD2E1"), drop=FALSE, labels=labs2)
 
-plot3+plot4+plot_annotation(tag_levels='A')
+plot4+plot_annotation('C')
 
 ggsave(
   paste("output/plots/data_available_combined2.png"),
@@ -161,8 +226,42 @@ ggsave(
   device = NULL,
   path = NULL,
   scale = 1,
-  width = 22,
-  height = 16,
+  width = 10,
+  height = 10,
+  units = c("in"),
+  dpi = 600,
+  limitsize = TRUE, bg="white"
+)
+
+plot4 <- ggplot(us_coast_proj) + geom_sf() +
+  geom_point(filter(example, survey_type!="bottom trawl survey"), mapping=aes(x=X*1000, y=Y*1000, colour=survey), size=0.005, alpha=1)+
+  geom_point(filter(example, survey_type=="bottom trawl survey"), mapping=aes(x=X*1000, y=Y*1000, colour=survey), size=0.005, alpha=0.5)+
+  scale_x_continuous(breaks=c(-150,-135,-120), limits=c(min(example$X)*1000, max(example$X)*1000))+
+  ylim(min(example$Y)*1000, max(example$Y)*1000)+
+  xlab("Longitude")+
+  ylab("Latitude")+
+  theme(legend.position=c("top"), legend.title=element_blank())+
+  guides(color = guide_legend(override.aes = list(size=6, alpha=1), nrow=3))+
+  scale_color_manual(values=c("#f2cc84","lightsteelblue", "seagreen", "darkslategrey", "#FAD2E1"), drop=FALSE, labels=labs2)+
+  geom_sf(data = polygons,
+          alpha = 0,
+          show.legend=F)+
+  geom_sf_text(
+    data = labels,
+    aes(label = region_lab, nudge_x=nudge), 
+    size=4,
+    show.legend=F)
+
+plot3+plot4+plot_annotation(tag_levels='A')
+
+ggsave(
+  paste("output/plots/data_available_combined3.png"),
+  plot = last_plot(),
+  device = NULL,
+  path = NULL,
+  scale = 1,
+  width = 10,
+  height = 10,
   units = c("in"),
   dpi = 600,
   limitsize = TRUE, bg="white"

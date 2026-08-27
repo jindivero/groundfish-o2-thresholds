@@ -1,3 +1,4 @@
+#Load packages
 library(tidyr)
 library(dplyr)
 library(stringr)
@@ -9,6 +10,9 @@ library(marmap)
 library(sf)
 library(here)
 
+here()
+
+#Load functions
 source("code/helper_funs.R")
 source("code/util_funs.R")
 
@@ -46,5 +50,4 @@ itis$species_common_name <- NULL
 itis$common_name <- ifelse(itis$common_name=="north pacific spiny dogfish", "spiny dogfish", itis$common_name)
 
 #Save
-
 saveRDS(itis, file="data/fish_raw/BC/species-table.rds")

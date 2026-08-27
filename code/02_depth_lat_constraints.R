@@ -4,7 +4,6 @@ library(purrr)
 library(ggplot2)
 library(openxlsx2)
 library(ggpubr)
-install.packages("concaveman")
 library(concaveman)
 library(sf)
 library(here)
@@ -107,11 +106,14 @@ for(i in 1:length(species)){
 species_table <- left_join(species_table, depths, by="common_name")
 write_xlsx(species_table, "data/species_table.xlsx")
 
+#Capitalize for plotting
+dat_depths$species <- str_to_sentence(dat_depths$common_name)
+
 #Fig S10: Plot cumulative sum by depth
 ggplot(dat_depths, aes(x=depth, y=prop_cumsum_catch))+
   geom_line()+
   geom_vline(species_table, mapping=aes(xintercept=depth), linetype="dashed")+
-  facet_wrap("common_name", ncol=4, labeller=labeller(common_name=label_wrap_gen(15)))+
+  facet_wrap("species", ncol=4, labeller=labeller(species=label_wrap_gen(15)))+
   ylab("Cumulative Sum of Catch")+
   xlab("Depth (m)")
 
@@ -470,23 +472,26 @@ species_ebs <- filter(species_table, !is.na(ebs_limit))$common_name
 species_goa <- filter(species_table, !is.na(goa_limit))$common_name
 species_cc <- filter(species_table, !is.na(southern_limit))$common_name
 
+#Capitalize for plotting
+dat_limits$species <- str_to_sentence(dat_limits$common_name)
+
 #Plots
 ggplot(filter(dat_limits, common_name %in% species_ebs & type=="ebs_limit"), aes(x=latitude, y=prop_cumsum_catch))+
   ggtitle("A  Northern Latitudinal Limits")+
   geom_line()+
   geom_vline(filter(species_table, common_name %in% species_ebs), mapping=aes(xintercept=ebs_limit), linetype="dashed")+
-  facet_wrap("common_name", labeller=labeller(common_name=label_wrap_gen(15)))+
+  facet_wrap("species", ncol=5, labeller=labeller(species=label_wrap_gen(15)))+
   ylab("Cumulative Sum of Catch")+
   xlab("Latitude")
 
 ggsave(
-  paste0("output/", output_folder, "/plots/Fig_S11_A.png"),
+  paste0("output/", output_folder, "/plots/Fig_S12_A.png"),
   plot = last_plot(),
   device = NULL,
   path = NULL,
   scale = 1,
   width = 8.5,
-  height = 11,
+  height = 3.5,
   units = c("in"),
   dpi = 600,
   limitsize = TRUE, bg="white"
@@ -496,19 +501,19 @@ ggplot(filter(dat_limits, common_name %in% species_goa & type=="goa_limit"), aes
   ggtitle("B  Gulf of Alaska Longitudinal Limits")+
   geom_line()+
   geom_vline(filter(species_table, common_name %in% species_goa), mapping=aes(xintercept=goa_limit), linetype="dashed")+
-  facet_wrap("common_name", labeller=labeller(common_name=label_wrap_gen(15)))+
+  facet_wrap("species", labeller=labeller(species=label_wrap_gen(15)))+
   scale_x_reverse()+
   ylab("Cumulative Sum of Catch")+
   xlab("Latitude")
 
 ggsave(
-  paste0("output/", output_folder, "/plots/Fig_S11_B.png"),
+  paste0("output/", output_folder, "/plots/Fig_S12_B.png"),
   plot = last_plot(),
   device = NULL,
   path = NULL,
   scale = 1,
   width = 8.5,
-  height = 11,
+  height = 6,
   units = c("in"),
   dpi = 600,
   limitsize = TRUE, bg="white"
@@ -518,19 +523,19 @@ ggplot(filter(dat_limits, common_name %in% species_cc & type=="southern_limit"),
   ggtitle("C Southern Range Limits")+
   geom_line()+
   geom_vline(filter(species_table, common_name %in% species_cc), mapping=aes(xintercept=southern_limit), linetype="dashed")+
-  facet_wrap("common_name", labeller=labeller(common_name=label_wrap_gen(15)))+
+  facet_wrap("species", labeller=labeller(species=label_wrap_gen(15)))+
   scale_x_reverse()+
   ylab("Cumulative Sum of Catch")+
   xlab("Latitude")
 
 ggsave(
-  paste0("output/", output_folder, "/plots/Fig_S11_C.png"),
+  paste0("output/", output_folder, "/plots/Fig_S12_C.png"),
   plot = last_plot(),
   device = NULL,
   path = NULL,
   scale = 1,
   width = 8.5,
-  height = 11,
+  height = 6,
   units = c("in"),
   dpi = 600,
   limitsize = TRUE, bg="white"
@@ -542,17 +547,20 @@ files <- list.files(path = "data/processed_data/fish_filtered", pattern = ".rds"
 dat <- map(files,readRDS)
 dat <- bind_rows(dat)
 
+#Capitalize for plotting
+dat$species <- str_to_sentence(dat$common_name)
+
 ggplot(us_coast_proj) + geom_sf() +
   geom_point(dat, mapping=aes(x=X*1000, y=Y*1000), colour="#0D0887FF", size=0.1)+
   ylim(min(dat$Y)*1000, max(dat$Y)*1000)+
   xlab("Longitude")+
   ylab("Latitude")+
   scale_x_continuous(breaks=c(-150,-120), limits=c(min(dat$X)*1000, max(dat$X)*1000))+
-  facet_wrap("common_name", ncol=8, labeller=labeller(common_name=label_wrap_gen(8)))+
+  facet_wrap("species", ncol=8, labeller=labeller(species=label_wrap_gen(7)))+
   theme(panel.spacing.x = unit(1.5, "lines"))
 
 ggsave(
-  paste0("output/", output_folder, "/plots/Fig_S12.png"),
+  paste0("output/", output_folder, "/plots/Fig_S13.png"),
   plot = last_plot(),
   device = NULL,
   path = NULL,

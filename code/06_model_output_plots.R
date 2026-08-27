@@ -20,6 +20,8 @@ library(ggpubr)
 library(stats)
 library(patchwork)
 library(here)
+library(ggimage)
+library(stringr)
 
 set.seed(9881)
 
@@ -61,6 +63,11 @@ mi_pars$Group <- tolower(mi_pars$Group)
 taxa <- read_excel("data/species_table.xlsx")
 taxa$MI_Taxa <- tolower(taxa$MI_Taxa)
 taxa$common_name <- tolower(taxa$common_name)
+
+#Add column for file name for image for plotting
+taxa$img <- paste0("data/pictures/", gsub(" ", "_",taxa$common_name), ".png")
+#Make common name capitalized for plotting
+taxa$species <- str_to_sentence(taxa$common_name)
 
 #Load aic table for model output
 #aic <- as.data.frame(read_excel(paste0("output/",output_folder, "/aic_table.xlsx")))
@@ -495,6 +502,12 @@ bp_aic$N_years <- bp_aic$'N years'
 bp_aic <- bp_aic %>%
   select(species, region, data_type, model7, model8, model13, model14, model15, bp_ensemble_mean, bp_ensemble_sd, slope_ensemble_mean, slope_ensemble_sd, N_obs, N_region, N_years)
 
+#Capitalize first letter for plotting
+all_preds2$species <- str_to_sentence(all_preds2$species)
+
+#Species to plot
+species2plot <- str_to_sentence(unique(bp_est$species))
+
 #save as excel file
 write.xlsx(bp_aic, file = paste0("output/", output_folder, "/breakpoint_estimates_aic.xlsx"), rowNames=F)
 
@@ -502,7 +515,7 @@ write.xlsx(bp_aic, file = paste0("output/", output_folder, "/breakpoint_estimate
 ggplot(filter(all_preds2, id %in% bp_est$id), aes(x=po2, y=ensemble_mean_sc))+
   geom_line(aes(colour=region, linetype=data_type))+
   geom_ribbon(aes(ymin=ensemble_mean_lower_sc, ymax=ensemble_mean_upper_sc, fill=region), alpha=0.2)+
-  facet_wrap("species", ncol=4, scales="free_y", labeller=labeller(species=label_wrap_gen(15)))+
+  facet_wrap("species", ncol=4, labeller=labeller(species=label_wrap_gen(15)))+
   theme(legend.title=element_blank(), 
         legend.box.spacing = unit(0, "pt"),
         legend.position="top")+
@@ -512,8 +525,13 @@ ggplot(filter(all_preds2, id %in% bp_est$id), aes(x=po2, y=ensemble_mean_sc))+
   scale_linetype_manual(values=c("dashed", "solid"))+
   guides(fill = guide_legend(nrow = 2, labels=labs), color=guide_legend(nrow=2, labels=labs, override.aes=list(size=4)), linetype=guide_legend(nrow=2))+
   xlab("Oxygen (kPa) at 12 C")+
-  ylab("Effect on Fish Density")
-
+  ylab("Effect on Fish Density")+
+  geom_image(data=filter(taxa, species %in% species2plot),
+    aes(image = img,x=25,y=0.2),
+    size = 0.5,
+    colour="lightgrey"
+  )
+  
 ggsave(
   paste0("output/", output_folder, "/plots/Fig_S3.png"),
   plot = last_plot(),
@@ -555,11 +573,37 @@ for(i in 1:length(unique(bp_est$species))){
 ##Save as RDS
 saveRDS(bp_est2, file = paste0("output/", output_folder, "/breakpoint_estimates_filtered.rds"))
 
+#Just one region per species
+for(i in 1:length(unique(bp_est2$species))){
+  this_dat <- filter(bp_est2, species==unique(bp_est2$species)[i])
+  this_species <- unique(bp_est2$species)[i]
+  if(nrow(this_dat)>1){
+    this_dat <- filter(this_dat, region=="bc")
+  }
+  if(i==1){
+    bp_est_temp <- this_dat
+  } else {
+    bp_est_temp <- bind_rows(bp_est_temp, this_dat)
+  }
+}
+
+#Add file name for each fish for plotting
+bp_est_temp$img <- paste0("data/pictures/", gsub(" ", "_",bp_est_temp$species), ".png")
+
+#Capitalize first letter for plotting
+bp_est_temp$species <- str_to_sentence(bp_est_temp$species)
+
 #Plot with only single region per species for visualization--Fig 2
 #Keep only california current for regions
 ggplot(bp_est_temp, aes(y=reorder(species, bp_ensemble_mean, decreasing=T), x=bp_ensemble_mean))+
-  geom_point(size=3, position=ggstance::position_dodgev(height=0.4))+
-  geom_linerange(aes(xmin = ensemble_lower, xmax = ensemble_upper),  position=ggstance::position_dodgev(height=0.4), size=1, alpha=0.5)+
+  geom_image(
+    aes(image = img, y=reorder(species, bp_ensemble_mean, decreasing=T), x=bp_ensemble_mean),
+    color="blue",
+    alpha=0.3,
+    size = 0.08
+  )+
+  geom_point(size=1, position=ggstance::position_dodgev(height=0.4))+
+  geom_linerange(aes(xmin = ensemble_lower, xmax = ensemble_upper),  position=ggstance::position_dodgev(height=0.4), size=0.4, alpha=1)+
   theme(panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
         strip.background = element_blank(),
@@ -571,9 +615,25 @@ ggplot(bp_est_temp, aes(y=reorder(species, bp_ensemble_mean, decreasing=T), x=bp
   theme(legend.box = "vertical",
         legend.spacing.y = unit(0, "pt"),
         legend.key.height = unit(0.25, "lines"), #Minimize legend space
-        panel.spacing = unit(5, "lines"))+ #Make more space between species
+        panel.spacing = unit(5, "lines"),
+        axis.text.x = element_text(color="black"),
+        axis.text.y = element_text(color="black"))+ #Make more space between species
   xlab("Temperature-Adjusted Oxygen Threshold (kPa)")+
   ylab("")
+
+#Add to far right of plot
+ # scale_x_continuous(limits=c(0,40), breaks=c(0,10,20,30))+
+ # geom_image(
+ #   aes(image = img, y=species, x=39),
+ #   size = 0.08
+#  )
+
+#Add to far left of plot
+# scale_x_continuous(limits=c(-3,33), breaks=c(0,10,20,30))+
+#   geom_image(
+#     aes(image = img, y=species, x=-2.8),
+#     size = 0.08
+#   )
 
 ggsave(
   paste0("output/", output_folder, "/plots/Fig2.png"),
@@ -589,7 +649,7 @@ ggsave(
   limitsize = TRUE
 )
 
-####Historical observations and conditional effects
+###Historical observations and conditional effects
 ###Loop through for each species for all data (limited to range)
 for(i in 1:nrow(bp_est2)){
   this_species <- bp_est2$species[i]
@@ -756,13 +816,16 @@ saveRDS(all_obs, file=paste0("output/", output_folder, "/", "conditional_effects
 ##Fig 3: Plot just coastwide species, on one plot
 dat2plot <- filter(all_obs, grepl("coastwide", data))
 
+#Make capitalized for plotting
+dat2plot$species <- str_to_sentence(dat2plot$common_name)
+
 ggplot(us_coast_proj) + geom_sf() +
   #geom_point(filter(dat2plot, est_effect_prop==0),mapping=aes(x=X*1000, y=Y*1000), colour="#0D0887FF", size=0.5, alpha=0.1)+
   geom_point(filter(dat2plot, ensemble_mean==0),mapping=aes(x=X*1000, y=Y*1000), colour="grey", size=0.1, alpha=0.1)+
   geom_point(filter(dat2plot,ensemble_mean>0),mapping=aes(x=X*1000, y=Y*1000, colour=ensemble_mean), size=0.1, alpha=0.1)+
    #geom_point(filter(dat2plot, est_effect_raw==max_effect),mapping=aes(x=X*1000, y=Y*1000), colour="#440154FF", size=0.5)+
   #geom_point(filter(dat2plot, est_effect_raw<max_effect),mapping=aes(x=X*1000, y=Y*1000, colour=est_effect_prop), size=0.5)+
-  facet_wrap("common_name", labeller=labeller(common_name=label_wrap_gen(20)))+
+  facet_wrap("species", labeller=labeller(species=label_wrap_gen(20)))+
   scale_x_continuous(breaks=c(-150,-135,-120), limits=c(min(dat2plot$X)*1000, max(dat2plot$X)*1000))+
   ylim(min(dat2plot$Y)*1000, max(dat2plot$Y)*1000)+
   theme_minimal(base_size=18)+
@@ -770,7 +833,15 @@ ggplot(us_coast_proj) + geom_sf() +
   ylab("Latitude")+
   theme(legend.position=c(0.8,0.15), legend.justification="center",
         legend.box.spacing = unit(0, "pt"), panel.spacing = unit(1.2, "lines"))+
-  scale_colour_viridis(name="Reduction in \n local density ", limits=c(0,0.8), breaks=c(0,0.25, 0.5,0.75,1), labels=scales::percent(c(0,0.25,0.5,0.75,1)), oob = scales::squish, option="plasma")
+  scale_colour_viridis(name="Reduction in \n local density ", limits=c(0,0.8), 
+                       breaks=c(0,0.25, 0.5,0.75,1), 
+                       labels=scales::percent(c(0,0.25,0.5,0.75,1)), 
+                       oob = scales::squish, option="plasma")+
+  geom_image(data=filter(taxa, species %in% str_to_sentence(unique(dat2plot$common_name))),
+             aes(image = img,x=-1901878.0,y=4046671),
+             size = 0.3,
+             colour="lightgrey"
+  )
 
 ggsave(
   paste0("output/", output_folder, "/", "plots/Fig3.png"),
@@ -791,16 +862,29 @@ dat2use$region <- factor(dat2use$region, levels=c("ebs", "goa", "bc", "cc"))
 labs <- c("Eastern Bering Sea", "Gulf of Alaska", "British Columbia", "California Current")
 dat2use <- filter(dat2use, year=="2011"|year=="2015"|year=="2023")
 names(labs) <- c("ebs", "goa", "bc", "cc")
-bp_est2$common_name <- bp_est2$species
+#Make capitalized
+bp_est2$species <- str_to_sentence(bp_est2$species)
+dat2use$species <- str_to_sentence(dat2use$common_name)
+#dataframe for adding the fish image
+df_pic <- select(taxa,species,img)
+df_pic <- filter(taxa, species %in% unique(dat2use$species))
+#Add year for plotting
+df_pic$year <- 2011
+
 ggplot(dat2use, aes(x=po2))+
   geom_density(aes(colour=region))+
-  facet_grid(year~common_name)+
+  facet_grid(year~species)+
   theme(legend.position="top")+
   xlab("Oxygen (kPa)")+
 guides(color = guide_legend(nrow = 2))+
-  geom_vline(filter(bp_est2, species %in% unique(dat2use$common_name)&(region=="goa"|region=="coastwide")), mapping=aes(xintercept=bp_ensemble_mean), linetype="dashed")+
+  geom_vline(filter(bp_est2, species %in% unique(dat2use$species)&(region=="goa"|region=="coastwide")), mapping=aes(xintercept=bp_ensemble_mean), linetype="dashed")+
   scale_colour_manual(values=c("#88CCEE", "#999933", "#44AA99","#CC6677"), drop=FALSE, labels=labs, name="")+
-  ylab("Density")
+  ylab("Density")+
+geom_image(data=df_pic,
+             aes(image = img,x=44,y=0.3),
+             size = 0.5,
+             colour="lightgrey"
+  )
 
 ggsave(
   paste0("output/", output_folder, "/", "plots/Fig_S5.png"),
@@ -818,9 +902,9 @@ ggsave(
 
 ###Predict to grid for California Current and British Columbia only
 #Read in grid and fix column names
-bc_grid <- readRDS("data/processed_data/o2/bc_predictions_grid.rds")
+bc_grid <- readRDS("data/processed_data/bc_predictions_grid.rds")
 bc_grid$latitude <- bc_grid$latitute
-cc_grid <- readRDS("data/processed_data/o2/cc_predictions_grid.rds")
+cc_grid <- readRDS("data/processed_data/cc_predictions_grid.rds")
 cc_grid$latitude <- cc_grid$latitute
 
 #Calculate inverse temp
@@ -1113,44 +1197,54 @@ process_species <- function(species2do){
 #Apply for all the species
 use_previous <- T
 if(!use_previous){
-species_list <- filter(bp_est2, grepl("coastwide|bc|cc", data))
+species_list <- filter(bp_est2, grepl("coastwide|cc", data))
 species_list <- unique(species_list$species)
 #apply to all species (if need to run)
 grids <- list()
-for(i in 1:10){
+for(i in 1:length(species_list)){
 grids_x <- process_species(species_list[i])
 grids[[i]] <- grids_x
 }
 }
 
+
 #Or load in
 if(use_previous){
 grids <- list()
-species_list <- filter(bp_est2, grepl("coastwide|bc|cc", data))
+species_list <- filter(bp_est2, grepl("coastwide|cc", data))
 species_list <- unique(species_list$species)
 for(i in 1:length(species_list)){
-  this_species <- species_list[i]
-  grid_x <- readRDS(paste0("output/", output_folder, "/", this_species, "_", "grid.rds"))
+  this_species <- tolower(species_list[i])
+  print(this_species)
+  grid_x <- try(readRDS(paste0("output/", output_folder, "/", this_species, "_", "grid.rds")))
+  if(is.data.frame(grid_x)){
   grids[[i]] <- grid_x
+  }
 }
 }
+
+#Name list by species
+names(grids) <- species_list
 
 #Filter to one year, and to the appropriate region
 for(i in 1:length(grids)){
 grids2use <- grids[[i]]
+print(unique(grids[[i]]$common_name))
 grids2use <- filter(grids2use, year==2021)
 #grids2use <- filter(grids2use,depth_m<(depth_limit+200))
 #grids2use <- filter(grids2use, (latitude>(min_lat-0.5))&(latitude<(max_lat+0.5)))
 this_dat <- bp_est2$data[bp_est2$species==species_list[i]]
-if(grepl("bc", this_dat)){
-  grids2use <- filter(grids2use, region=="bc")
+
+if(length(this_dat)>1){
+  this_dat <- "cc"
 }
+
 if(grepl("cc", this_dat)){
   grids2use <- filter(grids2use, region=="cc")
 }
 
 #Remove CC points in Bering Skate, because basically not there
-if(species_list[i]=="bering skate"){
+if(species_list[i]=="Bering skate"){
   grids2use <- filter(grids2use, !(region=="cc"))
 }
 
@@ -1175,6 +1269,14 @@ theme_update(panel.grid.major = element_blank(),
 ylims <- c(min(grids2$Y)*1000, max(grids2$Y)*1000)
 xlims <- c(min(grids2$X)*1000, max(grids2$X)*1000)
 
+#Make species name capitalized
+grids2$species <- str_to_sentence(grids2$common_name)
+#Make dataframe for images
+df_pic <- filter(select(taxa, species, img), species %in% unique(grids2$species))
+#Which species?
+coastwide_species <- filter(grids2, grepl("coastwide", data_type))
+coastwide_species <- unique(coastwide_species$species)
+
 ggplot(us_coast_proj) + geom_sf() +
   geom_point(filter(grids2, ensemble_mean==0&grepl("coastwide", data_type)),mapping=aes(x=X*1000, y=Y*1000), colour="grey", size=0.1, alpha=0.1)+
   geom_point(filter(grids2,ensemble_mean>0&grepl("coastwide", data_type)),mapping=aes(x=X*1000, y=Y*1000, colour=ensemble_mean), size=0.1)+
@@ -1182,12 +1284,19 @@ ggplot(us_coast_proj) + geom_sf() +
   #geom_point(filter(dat2plot, est_effect_raw<max_effect),mapping=aes(x=X*1000, y=Y*1000, colour=est_effect_prop), size=0.5)+
   scale_x_continuous(breaks=c(-130,-120), limits=c(xlims))+
   ylim(ylims)+
-  facet_wrap("common_name", ncol=5, labeller=labeller(common_name=label_wrap_gen(10)))+
+  facet_wrap("species", ncol=5, labeller=labeller(species=label_wrap_gen(10)))+
   theme_minimal(base_size=16)+
   xlab("Longitude")+
   ylab("Latitude")+
   theme(legend.position="top", panel.spacing = unit(1.5, "lines"), strip.text=element_text(size=13))+
-  scale_colour_viridis(name="Reduction in \nlocal density ", limits=c(0,0.8), breaks=c(0,0.25, 0.5,0.75,1), labels=scales::percent(c(0,0.25,0.5,0.75,1)), oob = scales::squish, option="plasma")
+  scale_colour_viridis(name="Reduction in \nlocal density ", 
+                       limits=c(0,0.8), breaks=c(0,0.25, 0.5,0.75,1), 
+                       labels=scales::percent(c(0,0.25,0.5,0.75,1)), 
+                       oob = scales::squish, option="plasma")+
+  geom_image(data=filter(df_pic, species %in% coastwide_species),
+      aes(image = img,x=-34253,y=3873495),
+      size = 0.2,
+      colour="lightgrey")
 
 ggsave(
   paste0("output/", output_folder, "/", "plots/Fig_4.png"),
@@ -1209,7 +1318,8 @@ dat2plot_wa <- filter(grids2, latitude>46&latitude<48.5)
 #Just species with a CC or coastwide model
 dat2plot_wa <- filter(dat2plot_wa, grepl("cc", data_type)|grepl("coastwide", data_type))
 #Remove Bering skate, because so little of its range is in the California Current
-dat2plot_wa <- filter(dat2plot_wa, !(common_name=="bering skate"))
+dat2plot_wa <- filter(dat2plot_wa, !(species=="Bering skate"))
+df_pic <- filter(df_pic, !(species=="Bering skate"))
 
 ggplot(us_coast_proj) + geom_sf() +
   geom_point(dat2plot_wa,mapping=aes(x=X*1000, y=Y*1000, colour=ensemble_mean), size=0.5)+
@@ -1217,15 +1327,22 @@ ggplot(us_coast_proj) + geom_sf() +
   #geom_point(filter(dat2plot, est_effect_raw<max_effect),mapping=aes(x=X*1000, y=Y*1000, colour=est_effect_prop), size=0.5)+
   scale_x_continuous(breaks=c(-125,-120), limits=c(min(dat2plot_wa$X)*1000, max(dat2plot_wa$X)*1000))+
   ylim(min(dat2plot_wa$Y)*1000, max(dat2plot_wa$Y)*1000)+
-  facet_wrap("common_name", ncol=5, labeller=labeller(common_name=label_wrap_gen(10)))+
+  facet_wrap("species", ncol=5, labeller=labeller(species=label_wrap_gen(10)))+
   theme_minimal(base_size=18)+
   xlab("Longitude")+
   ylab("Latitude")+
-  theme(legend.position=c(0.94,0.1), panel.spacing=unit(1,"lines"))+
-  scale_colour_viridis(name="Reduction in \nlocal density ", limits=c(0,0.8), breaks=c(0,0.25, 0.5,0.75,1), labels=scales::percent(c(0,0.25,0.5,0.75,1)), oob = scales::squish, option="plasma")
+  theme(legend.position=c(0.8,0.1), panel.spacing=unit(1,"lines"))+
+  scale_colour_viridis(name="Reduction in \nlocal density ", 
+                       limits=c(0,0.8), breaks=c(0,0.25, 0.5,0.75,1), 
+                       labels=scales::percent(c(0,0.25,0.5,0.75,1)), 
+                       oob = scales::squish, option="plasma")+
+geom_image(data=df_pic,
+           aes(image = img,x=290*1000,y=5150*1000),
+           size = 0.25,
+           colour="lightgrey")
 
 ggsave(
-  paste0("output/", output_folder, "/", "plots/Fig_S6.png"),
+  paste0("output/plots/Fig_S6.png"),
   plot = last_plot(),
   device = NULL,
   path = NULL,
@@ -1244,6 +1361,10 @@ test <- grids[[i]]
 #test <- filter(test, (latitude>(min_lat-0.5))&(latitude<max_lat+0.5))
 #Filter out BC or CC if not that region
 this_dat <- bp_est2$data[bp_est2$species==species_list[i]]
+print(unique(grids[[i]]$common_name))
+if(length(this_dat)>1){
+  this_dat <- "cc"
+}
 if(grepl("bc", this_dat)){
   test <- filter(test, region=="bc")
 }
@@ -1252,7 +1373,7 @@ if(grepl("cc", this_dat)){
 }
 
 #Remove CC points in Bering Skate, because basically not there
-if(species_list[i]=="bering skate"){
+if(species_list[i]=="Bering skate"){
   test<- filter(test, !(region=="cc"))
 }
 
@@ -1270,18 +1391,18 @@ test4 <- filter(test, ensemble_upper>0.1)
 
 effects_full_annual_summary <- test2 %>%
   group_by(year, region, common_name) %>%
-  summarise(area_sum=sum(area)/area_sum) %>%
+  reframe(area_sum=sum(area)/area_sum) %>%
   distinct()%>%
   ungroup()
 
 effects_full_annual_summary2 <- test3 %>%
   group_by(year, region, common_name) %>%
-  summarise(area_sum=sum(area)/area_sum) %>%
+  reframe(area_sum=sum(area)/area_sum) %>%
   distinct()%>%
   ungroup()
 effects_full_annual_summary3 <- test4 %>%
   group_by(year, region, common_name) %>%
-  summarise(area_sum=sum(area)/area_sum) %>%
+  reframe(area_sum=sum(area)/area_sum) %>%
   distinct()%>%
   ungroup()
 
@@ -1293,7 +1414,7 @@ effects_full_summary$area_sum.x <- NULL
 effects_full_summary <- full_join(effects_full_summary, effects_full_annual_summary3, by=c("year", "region", "common_name"))
 effects_full_summary$se2 <- effects_full_summary$area_sum
 effects_full_summary$area_sum <- NULL
-effects_full_summary$species <- unique(test$common_name)
+effects_full_summary$species <- str_to_sentence(unique(test$common_name))
 
 if(i==1){
 effects <- effects_full_summary
@@ -1309,7 +1430,17 @@ labs <- c("British Columbia", "California Current")
 names(labs) <- c("bc", "cc")
 
 ##Just selected species, for subset figure
-temp <- filter(grids_b, common_name=="pacific cod"|common_name=="shortspine thornyhead"|common_name=="spotted ratfish"|common_name=="silvergray rockfish")
+temp <- bind_rows(grids)
+#Capitalize
+temp$species <- str_to_sentence(temp$common_name)
+temp <- filter(temp, species=="Pacific cod"|species=="Shortspine thornyhead"|species=="Spotted ratfish"|species=="Silvergray rockfish")
+#Correct years
+temp <- filter(temp, year==2010|year==2021)
+#Correct latitudes
+temp <- filter(temp, latitude>46&latitude<48.5)
+
+#DF for pics
+df_pic2 <- filter(df_pic, species=="Pacific cod"|species=="Shortspine thornyhead"|species=="Spotted ratfish"|species=="Silvergray rockfish")
 
 a <- ggplot(us_coast_proj) + geom_sf() +
   geom_point(temp,mapping=aes(x=X*1000, y=Y*1000, colour=ensemble_mean), size=0.5)+
@@ -1317,14 +1448,15 @@ a <- ggplot(us_coast_proj) + geom_sf() +
   #geom_point(filter(dat2plot_wa, est_effect_raw<max_effect),mapping=aes(x=X*1000, y=Y*1000, colour=est_effect_prop), size=0.5)+
   scale_x_continuous(breaks=c(-125,-120), limits=c(min(temp$X)*1000, max(temp$X)*1000))+
   ylim(min(temp$Y)*1000, max(temp$Y)*1000)+
-  facet_nested(~common_name~year, labeller=labeller(common_name=label_wrap_gen(15)))+
+  facet_nested(~species~year, labeller=labeller(species=label_wrap_gen(15)))+
   theme_minimal(base_size=16)+
   xlab("Longitude")+
   ylab("Latitude")+
   theme(legend.position="top", legend.text = element_text(angle = 45, hjust = 1), legend.justification="center", legend.box.spacing = unit(0, "pt"))+
-  scale_colour_viridis(name="Reduction in \nlocal density ", limits=c(0,0.8), breaks=c(0,0.25, 0.5,0.75,1), labels=scales::percent(c(0,0.25,0.5,0.75,1)), oob = scales::squish, option="plasma")
+  scale_colour_viridis(name="Reduction in \nlocal density ", limits=c(0,0.8), breaks=c(0,0.25, 0.5,0.75,1), labels=scales::percent(c(0,0.25,0.5,0.75,1)), oob = scales::squish, option="plasma")+
+  theme(plot.margin = margin(5.5, 5.5, 5.5, 0))
 
-temp <- filter(effects, common_name=="pacific cod"|common_name=="shortspine thornyhead"|common_name=="spotted ratfish"|common_name=="silvergray rockfish")
+temp <- filter(effects, species=="Pacific cod"|species=="Shortspine thornyhead"|species=="Spotted ratfish"|species=="Silvergray rockfish")
 
 b <- ggplot(temp, aes(x=year, y=area_sum_med))+
   geom_line(aes(colour=region))+
@@ -1338,6 +1470,12 @@ b <- ggplot(temp, aes(x=year, y=area_sum_med))+
   guides(fill = guide_legend(nrow = 2))+
   xlab("Year") +
   ylab("Proportion of area w/ >10% local density reduction")
+
+#Add species images
+#in specific order
+df_pic2$species <- factor(
+  df_pic2$species,
+  levels = c("Spotted ratfish", "Silvergray rockfish", "Shortspine thornyhead", "Pacific cod"))
 
 patchwork <- b+a
 patchwork + plot_annotation(tag_levels = 'A') & 
@@ -1356,14 +1494,18 @@ ggsave(
 )
 
 ###Add full density predictions and density predictions with O2 above threshold
-species_list <- filter(bp_est2, grepl("coastwide|bc|cc", data))
+species_list <- filter(bp_est2, grepl("coastwide|cc", data))
 species_list <- unique(species_list$species)
 grids2 <- list()
 #Calculate predictions for each grid cell
 for(i in 1:length(species_list)){
-  this_species <- species_list[i]
-  bp_est3 <- filter(bp_est2, species==this_species)
+  this_species <- tolower(species_list[i])
+  bp_est3 <- filter(bp_est2, common_name==this_species)
   this_data <- bp_est3$data
+  if(length(this_data)>1){
+    this_data <- "cc"
+  }
+  
   print(this_species)
   #Calculate metabolic index from correct taxa parameters
   #Pull correct 
@@ -1375,7 +1517,7 @@ for(i in 1:length(species_list)){
   Eo <- c(mi_pars2$Eolow, mi_pars2$Eo, mi_pars2$Eohigh)
   
   #New dataframe
-  preds <- grids[[i]]
+  preds <- grids[[str_to_sentence(this_species)]]
   
   #Filter by depth and latitude
   #Depth buffer (200m than typical depth, and 0.5 degree latitude north and south)
@@ -1590,7 +1732,6 @@ for(i in 1:length(grids2)){
 ##Plot all coastwide species in line plot (Fig S8)
 ##Plot with predicted density by depth, for a sample latitude (46 deg), for year 2021, with full and actual oxygen
 test <- filter(grids_c, latitude>47&latitude<47.1&year==2021)
-test <- filter(test, data=="coastwide"|data=="cc")
 
 #Scale biomass to maximum biomass in that species
 test<- test %>%
@@ -1599,19 +1740,36 @@ test<- test %>%
          ensemble_mean_full2 = exp(ensemble_mean_full)/max(exp(ensemble_mean_full),na.rm=T))  %>%
   ungroup()
 
+#Capitalize for plotting
+test$species <- str_to_sentence(test$common_name)
+
+#dataframe for adding the fish image
+df_pic <- select(taxa,species,img)
+df_pic <- filter(taxa, species %in% unique(test$species))
+#Add x locations
+#Arrange alphabetically
+df_pic <- arrange(df_pic, species)
+df_pic$x <- c(415,415, 415, 450, 315, 1070, 415, 550,315)
+df_pic$y <- c(0.8, 0.9,0.9,0.9,0.9,0.9,0.9,0.9,0.9)
 ##Line plot of predicted vs full biomass across depths
 ggplot(test, aes(x=depth_m, y=ensemble_mean.y2))+
   geom_line(aes(colour="Density w/ oxygen reduction"))+
   geom_line(data=test, aes(x=depth_m, y=ensemble_mean_full2,colour="Full Density"))+
-  facet_wrap("common_name", scales="free",labeller=labeller(common_name=label_wrap_gen(15)))+
+  facet_wrap("species", scales="free_x",labeller=labeller(species=label_wrap_gen(15)))+
   scale_colour_manual(values=c("#ffcf20FF", "#482577FF"), name="")+
   theme(legend.title=element_blank(), 
-        plot.margin = unit(c(0, 0, 0, 0), "null"),
+        plot.margin = unit(c(0, 0.1, 0, 0), "null"),
         legend.justification="center", legend.box.spacing = unit(0, "pt"), legend.position="top",
         legend.text=element_text(size=25), axis.text=(element_text(size=25)), axis.title=element_text(size=25))+
   guides(colour = guide_legend(nrow = 2))+
   ylab("Scaled Fish Density")+
-  xlab("Depth (m)")
+  xlab("Depth (m)")+
+  geom_image(data=df_pic,
+             aes(image = img,x=x,y=y),
+             size = 0.5,
+             colour="lightgrey"
+  )
+
 
 ggsave(
   paste0("output/", output_folder, "/", "plots/Fig_S8.png"),
