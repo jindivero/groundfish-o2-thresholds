@@ -13,7 +13,7 @@ library(here)
 
 set.seed(9876)
 
-setwd(here())
+here()
 
 #Load functions
 source("code/helper_funs.R")
@@ -78,6 +78,9 @@ filter_depth <- T
 
 #Name of output folder
 output_folder <- "output"
+
+#Just in case, remove duplicates
+dat <- unique(dat)
 
 #Fit models 1-6? (Quadratic depth, not cubic depth)
 quad_depth_m1_6 <- T
@@ -144,6 +147,8 @@ for (h in 1:length(species)) {
   dats <- list()
   for(j in 1:length(subs)){
     sub <- subs[[j]]
+    #Just in case, remove duplicates
+    sub <- unique(sub)
     #Quadratic and scaled temp
     sub$temp_scaled <- scale(sub$temperature_C)
     sub$temp_scaled2 <- sub$temp_scaled^2

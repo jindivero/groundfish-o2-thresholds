@@ -10,9 +10,7 @@ library(gt)
 library(openxlsx2)
 library(here)
 
-set.seed(9876)
-
-setwd(here())
+here()
 
 #Load functions
 source("code/helper_funs.R")
@@ -87,6 +85,9 @@ cub_depth_m7_16 <- T
 #depth & latitude info from species table
 species_table <- read_excel("data/species_table.xlsx")
 species_table$common_name <- tolower(species_table$common_name)
+
+#Just in case, remove duplicates
+dat <- unique(dat)
 
 #fit models
 for (h in 1:length(species)){
@@ -166,6 +167,7 @@ for (h in 1:length(species)){
   
   for(i in 1:length(dats)){
     sub <- dats[[i]]
+    sub <- unique(sub)
     print(dat_names[i])
     #Make mesh
     bnd <- INLA::inla.nonconvex.hull(cbind(sub$X, sub$Y), 

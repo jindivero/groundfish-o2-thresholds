@@ -15,7 +15,7 @@ library(sf)
 library(patchwork)
 library(concaveman)
 
-setwd(here())
+here()
 
 #Load functions
 source("code/helper_funs.R")
@@ -91,6 +91,9 @@ counts <- dat %>%
   ) %>%
   count(common_name, year, region, survey_type)
 
+#Capitalize species
+counts$common_name <- str_to_sentence(counts$common_name)
+
 ##Combine IPHC and bottom trawl surveys, positive catch only, for each species
 ##Plot barplot with IPHC and bottom trawl data for all species
 ggplot(counts, aes(x=year, y=n, fill=region, pattern=survey_type))+
@@ -112,7 +115,7 @@ ggplot(counts, aes(x=year, y=n, fill=region, pattern=survey_type))+
   scale_fill_manual(values=c("#88CCEE", "#999933", "#44AA99","#CC6677"), drop=FALSE, labels=labs)
 
 ggsave(
-  paste("output/plots/Fig_S9_dat_barplot_all_species.png"),
+  paste("output/plots/Fig_S10.png"),
   plot = last_plot(),
   device = NULL,
   path = NULL,

@@ -8,7 +8,7 @@ library(concaveman)
 library(sf)
 library(here)
 
-setwd(here())
+here()
 
 #Load functions
 source("code/helper_funs.R")
@@ -109,7 +109,7 @@ write_xlsx(species_table, "data/species_table.xlsx")
 #Capitalize for plotting
 dat_depths$species <- str_to_sentence(dat_depths$common_name)
 
-#Fig S10: Plot cumulative sum by depth
+#Plot cumulative sum by depth
 ggplot(dat_depths, aes(x=depth, y=prop_cumsum_catch))+
   geom_line()+
   geom_vline(species_table, mapping=aes(xintercept=depth), linetype="dashed")+
@@ -118,7 +118,7 @@ ggplot(dat_depths, aes(x=depth, y=prop_cumsum_catch))+
   xlab("Depth (m)")
 
 ggsave(
-  paste0("output/", output_folder, "/plots/Fig_S10.png"),
+  paste0("output/", output_folder, "/plots/Fig_S11.png"),
   plot = last_plot(),
   device = NULL,
   path = NULL,

@@ -2,7 +2,7 @@ library(sdmTMB)
 library(dplyr)
 library(here)
 
-setwd(here())
+here()
 
 #Load functions
 source("code/helper_funs.R")

@@ -9,7 +9,7 @@ library(sf)
 library(here)
 
 #Set wd
-setwd(here())
+here()
 
 ##Initial data cache
 cache_data()

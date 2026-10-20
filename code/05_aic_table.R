@@ -6,7 +6,7 @@ library(gt)
 library(openxlsx2)
 library(here)
 
-setwd(here())
+here()
 
 #Load functions
 source("code/helper_funs.R")

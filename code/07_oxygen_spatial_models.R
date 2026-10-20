@@ -7,8 +7,7 @@ library(ggplot2)
 library(viridis)
 library(here)
 
-###wd
-setwd(here())
+here()
 
 #Load functions
 source("code/helper_funs.R")
@@ -87,7 +86,7 @@ ggplot(dat, aes(x=po2, y=depth))+
   theme(legend.position = "top")
 
 ggsave(
-  paste0("output/plots/Fig1.png"),
+  paste0("output/output/plots/Fig_1.png"),
   plot = last_plot(),
   device = NULL,
   path = NULL,

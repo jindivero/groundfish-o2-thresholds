@@ -8,7 +8,7 @@ library(sf)
 library(tidync)
 library(here)
 
-setwd(here())
+here()
 
 #Load functions
 source("code/util_funs.R")

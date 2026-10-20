@@ -22,10 +22,11 @@ library(patchwork)
 library(here)
 library(ggimage)
 library(stringr)
+library(Matrix)
 
 set.seed(9881)
 
-setwd(here())
+here()
 
 #ggplot themes
 theme_set(theme_bw(base_size = 16))
@@ -99,6 +100,9 @@ dat <- filter(dat, depth>0)
 
 #Remove oxygen outliers
 dat <- filter(dat, O2_umolkg<1500)
+
+#Remove duplicates, in case
+dat <- unique(dat)
 
 ##Make prediction grid for conditional effects
 #Sequence of oxygen values
@@ -844,7 +848,7 @@ ggplot(us_coast_proj) + geom_sf() +
   )
 
 ggsave(
-  paste0("output/", output_folder, "/", "plots/Fig3.png"),
+  paste0("output/", output_folder, "/", "plots/Fig_3.png"),
   plot = last_plot(),
   device = NULL,
   path = NULL,
@@ -856,7 +860,7 @@ ggsave(
   limitsize = TRUE, bg="white"
 )
 
-##Figure S5: Plot observations above and below thresholds with example species
+## Figure S5: Plot observations above and below thresholds with example species
 dat2use <- filter(all_obs, common_name=="pacific halibut"|common_name=="pacific cod")
 dat2use$region <- factor(dat2use$region, levels=c("ebs", "goa", "bc", "cc"))
 labs <- c("Eastern Bering Sea", "Gulf of Alaska", "British Columbia", "California Current")
@@ -870,6 +874,8 @@ df_pic <- select(taxa,species,img)
 df_pic <- filter(taxa, species %in% unique(dat2use$species))
 #Add year for plotting
 df_pic$year <- 2011
+#Order years
+dat2use$year <- factor(dat2use$year, levels=c("2011", "2015", "2023"))
 
 ggplot(dat2use, aes(x=po2))+
   geom_density(aes(colour=region))+
@@ -922,7 +928,7 @@ grid <- bind_rows(bc_grid, cc_grid)
 ylims <- c(min(grid$Y)*1000, max(grid$Y)*1000)
 xlims <- c(min(grid$X)*1000, max(grid$X)*1000)
 
-##Fig S7: Plot oxygen data
+##Plot oxygen data
 #Just WA
 grid_wa <- filter(grid, latitude>46&latitude<48.5)
 ylims2 <- c(min(grid_wa$Y)*1000, max(grid_wa$Y)*1000)
@@ -1052,11 +1058,12 @@ process_species <- function(species2do){
   this_data <- bp_est3$data
  
   print(this_species)
+  #Species table for depth & lat filtering
+  species_tab <- filter(species_table, common_name==tolower(this_species))
   #Calculate metabolic index from correct taxa parameters
-  #Pull correct 
-  species_tab <- filter(species_table, common_name==this_species)
-  #Calculate metabolic index from correct taxa parameters
-  this_taxa <- species_tab$MI_Taxa[species_tab$common_name==this_species]
+  this_taxa <- species_table$MI_Taxa[species_table$common_name==tolower(this_species)]
+  mi_pars <- read.csv("data/taxa_table.csv")
+  mi_pars$Group <- tolower(mi_pars$Group)
   mi_pars2 <- filter(mi_pars,Group==this_taxa)
   
   Eo <- c(mi_pars2$Eolow, mi_pars2$Eo, mi_pars2$Eohigh)
@@ -1135,10 +1142,12 @@ process_species <- function(species2do){
   for(g in 1:length(model_fits)){
     if(models[g] %in% mi_models2use){
       fit <- model_fits[[g]]
+      print(g)
       # Get variance-covariance matrix
       V <- fit[["sd_report"]][["cov.fixed"]]
       #Pull out just threshold
       vcov <- V[grep("threshold", rownames(V)), grep("threshold", colnames(V))]
+      vcov <- as.matrix(nearPD(vcov)$mat)
       slope <- fit[["sd_report"]][["value"]][["s_slope"]]
       thresh <- fit[["sd_report"]][["value"]][["s_cut"]]
       #Pull 100 par combinations from variance-covariance matrix
@@ -1206,7 +1215,6 @@ grids_x <- process_species(species_list[i])
 grids[[i]] <- grids_x
 }
 }
-
 
 #Or load in
 if(use_previous){
@@ -1342,7 +1350,7 @@ geom_image(data=df_pic,
            colour="lightgrey")
 
 ggsave(
-  paste0("output/plots/Fig_S6.png"),
+  paste0("output/output/plots/Fig_S6.png"),
   plot = last_plot(),
   device = NULL,
   path = NULL,
@@ -1433,14 +1441,14 @@ names(labs) <- c("bc", "cc")
 temp <- bind_rows(grids)
 #Capitalize
 temp$species <- str_to_sentence(temp$common_name)
-temp <- filter(temp, species=="Pacific cod"|species=="Shortspine thornyhead"|species=="Spotted ratfish"|species=="Silvergray rockfish")
+temp <- filter(temp, species=="Pacific cod"|species=="Shortspine thornyhead"|species=="Spotted ratfish"|species=="Canary rockfish")
 #Correct years
 temp <- filter(temp, year==2010|year==2021)
 #Correct latitudes
 temp <- filter(temp, latitude>46&latitude<48.5)
 
 #DF for pics
-df_pic2 <- filter(df_pic, species=="Pacific cod"|species=="Shortspine thornyhead"|species=="Spotted ratfish"|species=="Silvergray rockfish")
+df_pic2 <- filter(df_pic, species=="Pacific cod"|species=="Shortspine thornyhead"|species=="Spotted ratfish"|species=="Canary rockfish")
 
 a <- ggplot(us_coast_proj) + geom_sf() +
   geom_point(temp,mapping=aes(x=X*1000, y=Y*1000, colour=ensemble_mean), size=0.5)+
@@ -1456,7 +1464,7 @@ a <- ggplot(us_coast_proj) + geom_sf() +
   scale_colour_viridis(name="Reduction in \nlocal density ", limits=c(0,0.8), breaks=c(0,0.25, 0.5,0.75,1), labels=scales::percent(c(0,0.25,0.5,0.75,1)), oob = scales::squish, option="plasma")+
   theme(plot.margin = margin(5.5, 5.5, 5.5, 0))
 
-temp <- filter(effects, species=="Pacific cod"|species=="Shortspine thornyhead"|species=="Spotted ratfish"|species=="Silvergray rockfish")
+temp <- filter(effects, species=="Pacific cod"|species=="Shortspine thornyhead"|species=="Spotted ratfish"|species=="Canary rockfish")
 
 b <- ggplot(temp, aes(x=year, y=area_sum_med))+
   geom_line(aes(colour=region))+
@@ -1475,7 +1483,7 @@ b <- ggplot(temp, aes(x=year, y=area_sum_med))+
 #in specific order
 df_pic2$species <- factor(
   df_pic2$species,
-  levels = c("Spotted ratfish", "Silvergray rockfish", "Shortspine thornyhead", "Pacific cod"))
+  levels = c("Spotted ratfish", "Canary rockfish", "Shortspine thornyhead", "Pacific cod"))
 
 patchwork <- b+a
 patchwork + plot_annotation(tag_levels = 'A') & 
@@ -1499,8 +1507,8 @@ species_list <- unique(species_list$species)
 grids2 <- list()
 #Calculate predictions for each grid cell
 for(i in 1:length(species_list)){
-  this_species <- tolower(species_list[i])
-  bp_est3 <- filter(bp_est2, common_name==this_species)
+  this_species <- species_list[i]
+  bp_est3 <- filter(bp_est2, species==this_species)
   this_data <- bp_est3$data
   if(length(this_data)>1){
     this_data <- "cc"
@@ -1509,9 +1517,9 @@ for(i in 1:length(species_list)){
   print(this_species)
   #Calculate metabolic index from correct taxa parameters
   #Pull correct 
-  species_tab <- filter(species_table, common_name==this_species)
+  species_tab <- filter(species_table, common_name==tolower(this_species))
   #Calculate metabolic index from correct taxa parameters
-  this_taxa <- species_tab$MI_Taxa[species_tab$common_name==this_species]
+  this_taxa <- species_tab$MI_Taxa[species_tab$common_name==tolower(this_species)]
   mi_pars2 <- filter(mi_pars,Group==this_taxa)
   
   Eo <- c(mi_pars2$Eolow, mi_pars2$Eo, mi_pars2$Eohigh)
@@ -1533,12 +1541,12 @@ for(i in 1:length(species_list)){
     preds <- filter(preds, region=="bc")
   }
   
-  #If CC-only model, filter to CC regio
+  #If CC-only model, filter to CC region
   if(grepl("cc", this_data)){
     preds <- filter(preds, region=="cc")
   }
   
-  if(this_species=="bering skate"){
+  if(this_species=="Bering skate"){
     preds <- filter(preds, region=="bc")
   }
   
@@ -1749,13 +1757,13 @@ df_pic <- filter(taxa, species %in% unique(test$species))
 #Add x locations
 #Arrange alphabetically
 df_pic <- arrange(df_pic, species)
-df_pic$x <- c(415,415, 415, 450, 315, 1070, 415, 550,315)
+df_pic$x <- c(415,320, 415, 425,475,325,1150, 550,325)
 df_pic$y <- c(0.8, 0.9,0.9,0.9,0.9,0.9,0.9,0.9,0.9)
 ##Line plot of predicted vs full biomass across depths
 ggplot(test, aes(x=depth_m, y=ensemble_mean.y2))+
   geom_line(aes(colour="Density w/ oxygen reduction"))+
   geom_line(data=test, aes(x=depth_m, y=ensemble_mean_full2,colour="Full Density"))+
-  facet_wrap("species", scales="free_x",labeller=labeller(species=label_wrap_gen(15)))+
+  facet_wrap("species", scales="free_x",labeller=labeller(species=label_wrap_gen(20)))+
   scale_colour_manual(values=c("#ffcf20FF", "#482577FF"), name="")+
   theme(legend.title=element_blank(), 
         plot.margin = unit(c(0, 0.1, 0, 0), "null"),
